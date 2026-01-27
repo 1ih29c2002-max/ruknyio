@@ -11,10 +11,12 @@
     "dev:api": "npm run start:dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspaces",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
     "test": "npm run test --workspaces",
     "lint": "npm run lint --workspaces",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "prepare": "husky || true",
+    "prepare": "node -e \"if (process.env.CI || process.env.VERCEL || process.env.SKIP_HUSKY) process.exit(0); try { require('husky').install(); } catch(e) {}\" || true",
     "postinstall": "npx prisma generate --schema=apps/api/prisma/schema.prisma || true"
   },
   "devDependencies": {
