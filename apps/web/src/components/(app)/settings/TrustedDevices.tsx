@@ -15,7 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSecuritySettings, TrustedDevice } from '@/lib/hooks/settings/useSecuritySettings';
 import { formatDistanceToNow } from 'date-fns';
-import { arSA } from 'date-fns/locale';
+import { ar } from 'date-fns/locale';
 
 export function TrustedDevices() {
   const { getTrustedDevices, removeTrustedDevice } = useSecuritySettings();
@@ -116,7 +116,7 @@ export function TrustedDevices() {
                     )}
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      {formatDistanceToNow(new Date(device.lastUsed), { addSuffix: true, locale: arSA })}
+                      {formatDistanceToNow(new Date(device.lastUsed), { addSuffix: true, locale: ar })}
                     </span>
                   </div>
                 </div>

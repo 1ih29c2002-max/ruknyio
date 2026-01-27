@@ -18,7 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSecuritySettings, Session } from '@/lib/hooks/settings/useSecuritySettings';
 import { formatDistanceToNow } from 'date-fns';
-import { arSA } from 'date-fns/locale';
+import { ar } from 'date-fns/locale';
 
 export function SessionsManager() {
   const { getSessions, deleteSession, deleteOtherSessions } = useSecuritySettings();
@@ -162,7 +162,7 @@ export function SessionsManager() {
                       )}
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {formatDistanceToNow(new Date(session.lastActivity), { addSuffix: true, locale: arSA })}
+                        {formatDistanceToNow(new Date(session.lastActivity), { addSuffix: true, locale: ar })}
                       </span>
                     </div>
                   </div>

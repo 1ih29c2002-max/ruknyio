@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSecuritySettings, BlockedIP } from '@/lib/hooks/settings/useSecuritySettings';
 import { format, formatDistanceToNow } from 'date-fns';
-import { arSA } from 'date-fns/locale';
+import { ar } from 'date-fns/locale';
 
 export function IPBlocklist() {
   const { getBlockedIPs, blockIP, unblockIP, isLoading, error, setError } = useSecuritySettings();
@@ -150,7 +150,7 @@ export function IPBlocklist() {
                     <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground flex-wrap justify-end">
                       <span className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded">
                         <Clock className="w-3 h-3" />
-                        محظور منذ {formatDistanceToNow(new Date(ip.createdAt), { locale: arSA })}
+                        محظور منذ {formatDistanceToNow(new Date(ip.createdAt), { locale: ar })}
                       </span>
                       {ip.expiresAt && (
                         <span className="flex items-center gap-1 bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">

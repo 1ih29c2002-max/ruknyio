@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSecuritySettings, SecurityLog } from '@/lib/hooks/settings/useSecuritySettings';
 import { format, formatDistanceToNow } from 'date-fns';
-import { arSA } from 'date-fns/locale';
+import { ar } from 'date-fns/locale';
 
 const ACTION_LABELS: Record<string, string> = {
   'LOGIN_SUCCESS': 'تسجيل دخول',
@@ -125,7 +125,7 @@ export function SecurityLogs() {
   const formatTimeAgo = (date: string | Date) => {
     try {
       const d = typeof date === 'string' ? new Date(date) : date;
-      return formatDistanceToNow(d, { addSuffix: true, locale: arSA });
+      return formatDistanceToNow(d, { addSuffix: true, locale: ar });
     } catch {
       const d = typeof date === 'string' ? new Date(date) : date;
       return format(d, 'dd/MM HH:mm');
