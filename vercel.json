@@ -17,7 +17,10 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "CI": "true",
+    "VERCEL": "true",
+    "SKIP_HUSKY": "true"
   },
   "framework": "nextjs",
   "installCommand": "npm install",

@@ -4,128 +4,104 @@ generator client {
 }
 
 datasource db {
-    url      = env("DATABASE_URL")
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id                   String    @id @default(uuid())
-  email                String    @unique
-  role                 Role      @default(BASIC)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  emailVerified        Boolean   @default(false)
-  phone                String?
-  twoFactorEnabled     Boolean   @default(false)
-  twoFactorSecret      String?
-  googleId             String?   @unique
-  linkedinId           String?   @unique
-  lastKnownIpFingerprint  String?   // HMAC-SHA256 of last known IP
-  lastLoginAt             DateTime?
-  lastLoginIpFingerprint  String?   // HMAC-SHA256 of last login IP
-  profileCompleted     Boolean   @default(false)
-  googleAccessToken    String?
-  googleCalendarLinked Boolean   @default(false)
-  googleRefreshToken   String?
-  googleTokenExpiry    DateTime?
-
-  // ===== WhatsApp Checkout Fields =====
-  phoneNumber     String?     @unique // رقم الهاتف للتحقق عبر واتساب
-  phoneVerified   Boolean     @default(false)
-  phoneVerifiedAt DateTime?
-  accountType     AccountType @default(REGULAR)
-
-  addresses             addresses[]
-  calendar_integrations calendar_integrations[]
-  carts                 carts?
-  comments              comments[]
-  coupon_usages         coupon_usages[]
-  organizers_invited    EventOrganizer[]        @relation("event_organizers_invitedByTousers")
-  organizers            EventOrganizer[]        @relation("event_organizers_userIdTousers")
-  eventRegistrations    EventRegistration[]
-  eventReviews          EventReview[]
-  event_tickets         EventTicket[]
-  eventWaitlist         EventWaitlist[]
-  events                Event[]
-  followers             follows[]               @relation("follows_followerIdTousers")
-  following             follows[]               @relation("follows_followingIdTousers")
-  form_submissions      form_submissions[]
-  forms                 Form[]
-  likes                 likes[]
-  notifications         notifications[]
-  orders                orders[]
-  posts                 posts[]
-  profile               Profile?
-  quicksign_links       quicksign_links[]
-  reviews               reviews[]
-  securityLogs          SecurityLog[]
-  security_preferences  security_preferences?
-  sessions              Session[]
-  stores                Store[]
-  trusted_devices       trusted_devices[]
-  verification_codes    verification_codes[]
-  wishlists             wishlists[]
-
-  // ===== WhatsApp OTP Relations =====
-  whatsappOtps          WhatsappOtp[]
-  whatsappNotifications WhatsappNotification[]
-
-  // Banner URLs stored as array of S3 object keys or public URLs
-  bannerUrls String[] @default([])
-
-  // ===== Telegram Integration =====
-  telegramChatId      String?              @unique
-  telegramUsername    String?
-  telegramFirstName   String?
-  telegramLastName    String?
-  telegramSession     TelegramSession?
-  telegramEnabled     Boolean              @default(true)
-  telegramConnectedAt DateTime?
-  telegramLogs        TelegramWebhookLog[]
-
-  // ===== Two-Factor Authentication =====
-  twoFactorBackupCodes TwoFactorBackupCode[]
-
-  // ===== User Files (S3 Storage Tracking) =====
-  files UserFile[]
-
-  // ===== Todo Activities - DISABLED =====
-  // todoActivities TodoActivity[]
-
-  // ===== Todo Lists & Sharing - DISABLED =====
-  // todoLists           TodoList[]
-  // todoListMemberships TodoListMember[]
-  // sentInvitations     TodoListInvitation[] @relation("SentInvitations")
+  id                     String                  @id @default(uuid())
+  email                  String                  @unique
+  role                   Role                    @default(BASIC)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  emailVerified          Boolean                 @default(false)
+  phone                  String?
+  twoFactorEnabled       Boolean                 @default(false)
+  twoFactorSecret        String?
+  googleId               String?                 @unique
+  linkedinId             String?                 @unique
+  lastKnownIpFingerprint String?
+  lastLoginAt            DateTime?
+  lastLoginIpFingerprint String?
+  profileCompleted       Boolean                 @default(false)
+  googleAccessToken      String?
+  googleCalendarLinked   Boolean                 @default(false)
+  googleRefreshToken     String?
+  googleTokenExpiry      DateTime?
+  phoneNumber            String?                 @unique
+  phoneVerified          Boolean                 @default(false)
+  phoneVerifiedAt        DateTime?
+  accountType            AccountType             @default(REGULAR)
+  bannerUrls             String[]                @default([])
+  telegramChatId         String?                 @unique
+  telegramUsername       String?
+  telegramFirstName      String?
+  telegramLastName       String?
+  telegramEnabled        Boolean                 @default(true)
+  telegramConnectedAt    DateTime?
+  addresses              addresses[]
+  calendar_integrations  calendar_integrations[]
+  carts                  carts?
+  comments               comments[]
+  coupon_usages          coupon_usages[]
+  organizers_invited     EventOrganizer[]        @relation("event_organizers_invitedByTousers")
+  organizers             EventOrganizer[]        @relation("event_organizers_userIdTousers")
+  eventRegistrations     EventRegistration[]
+  eventReviews           EventReview[]
+  event_tickets          EventTicket[]
+  eventWaitlist          EventWaitlist[]
+  events                 Event[]
+  followers              follows[]               @relation("follows_followerIdTousers")
+  following              follows[]               @relation("follows_followingIdTousers")
+  form_submissions       form_submissions[]
+  forms                  Form[]
+  likes                  likes[]
+  notifications          notifications[]
+  orders                 orders[]
+  posts                  posts[]
+  profile                Profile?
+  quicksign_links        quicksign_links[]
+  reviews                reviews[]
+  securityLogs           SecurityLog[]
+  security_preferences   security_preferences?
+  sessions               Session[]
+  stores                 Store[]
+  telegramSession        TelegramSession?
+  telegramLogs           TelegramWebhookLog[]
+  trusted_devices        trusted_devices[]
+  twoFactorBackupCodes   TwoFactorBackupCode[]
+  files                  UserFile[]
+  verification_codes     verification_codes[]
+  whatsappNotifications  WhatsappNotification[]
+  whatsappOtps           WhatsappOtp[]
+  wishlists              wishlists[]
 
   @@index([telegramChatId])
   @@index([telegramConnectedAt])
-  @@index([phoneNumber]) // Index for WhatsApp checkout phone lookup
-  @@index([email, role]) // Composite index for user lookups by email and role
-  @@index([createdAt]) // Index for sorting/filtering by creation date
-  @@index([updatedAt]) // Index for recently updated users queries
-  @@index([lastLoginAt]) // Index for activity tracking
+  @@index([phoneNumber])
+  @@index([email, role])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([lastLoginAt])
   @@map("users")
 }
 
 model Profile {
-  id         String     @id @default(uuid())
-  userId     String     @unique
-  username   String     @unique
-  name       String
-  bio        String?
-  avatar     String?
-  coverImage String?
-  visibility Visibility @default(PUBLIC)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  // Storage tracking
-  storageUsed  BigInt @default(0) // Used storage in bytes
-  storageLimit BigInt @default(5368709120) // 5GB default limit
-
-  linkGroups  LinkGroup[]
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  socialLinks SocialLink[]
+  id           String       @id @default(uuid())
+  userId       String       @unique
+  username     String       @unique
+  name         String
+  bio          String?
+  avatar       String?
+  coverImage   String?
+  visibility   Visibility   @default(PUBLIC)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  storageUsed  BigInt       @default(0)
+  storageLimit BigInt       @default(5368709120)
+  linkGroups   LinkGroup[]
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socialLinks  SocialLink[]
 
   @@map("profiles")
 }
@@ -147,14 +123,13 @@ model SocialLink {
   isPinned       Boolean          @default(false)
   isPopular      Boolean          @default(false)
   totalClicks    Int              @default(0)
-  layout         String           @default("classic") // classic | featured
-  thumbnail      String? // URL for featured layout thumbnail
+  layout         String           @default("classic")
+  thumbnail      String?
   link_analytics link_analytics[]
   group          LinkGroup?       @relation(fields: [groupId], references: [id])
   profile        Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@index([groupId])
-  // ⚡ Performance: Indexes for common queries
   @@index([profileId])
   @@index([profileId, displayOrder])
   @@index([status])
@@ -183,12 +158,8 @@ model LinkGroup {
 model Session {
   id                       String    @id @default(uuid())
   userId                   String
-  // 🔒 Refresh Token Hash فقط - للتجديد الآمن
-  // ⚠️ لا نخزن Access Token - نستخدم sessionId (sid) في JWT بدلاً من ذلك
   refreshTokenHash         String?   @unique
-  // 🔒 Hash السابق لكشف إعادة الاستخدام (Token Theft Detection)
   previousRefreshTokenHash String?
-  // معلومات الجهاز
   deviceName               String?
   deviceType               String?
   browser                  String?
@@ -196,26 +167,22 @@ model Session {
   ipAddress                String?
   location                 String?
   userAgent                String?
-  // أوقات مهمة
   lastActivity             DateTime  @default(now())
-  expiresAt                DateTime // Session expiry
-  refreshExpiresAt         DateTime? // Refresh Token expiry (أطول)
+  expiresAt                DateTime
+  refreshExpiresAt         DateTime?
   createdAt                DateTime  @default(now())
-  // 🔒 حالة الجلسة - للتحكم في الإبطال
   isRevoked                Boolean   @default(false)
   revokedAt                DateTime?
   revokedReason            String?
-  // 🔒 تتبع Rotation
   rotationCount            Int       @default(0)
   lastRotatedAt            DateTime?
-  // علاقة المستخدم
   user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([refreshTokenHash])
   @@index([previousRefreshTokenHash])
   @@index([isRevoked])
-  @@index([lastActivity]) // ⚡ Performance: للفلترة والترتيب حسب النشاط
+  @@index([lastActivity])
   @@map("sessions")
 }
 
@@ -257,12 +224,12 @@ model Store {
   updatedAt          DateTime             @updatedAt
   address            String?
   categoryId         String?
-  category           String? // Direct category string (fashion, electronics, etc.)
-  employeesCount     String? // solo, 2-5, 6-10, 11-50, 50+
+  category           String?
+  employeesCount     String?
   city               String?
   country            String               @default("Iraq")
-  latitude           Float? // خط العرض
-  longitude          Float? // خط الطول
+  latitude           Float?
+  longitude          Float?
   descriptionAr      String?
   metadata           Json?
   coupons            coupons[]
@@ -276,7 +243,6 @@ model Store {
   @@index([categoryId])
   @@index([status])
   @@index([userId])
-  // ⚡ Performance: Composite index for store listings
   @@index([status, createdAt])
   @@map("stores")
 }
@@ -312,17 +278,16 @@ model Event {
   sponsors           EventSponsor[]
   tickets            EventTicket[]
   waitlist           EventWaitlist[]
-  notifications      notifications[]
   category           EventCategory?      @relation(fields: [categoryId], references: [id])
   user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   forms              Form[]
+  notifications      notifications[]
 
   @@index([userId])
   @@index([categoryId])
   @@index([status])
   @@index([startDate])
   @@index([googleCalendarId])
-  // ⚡ Performance: Composite indexes for event listings
   @@index([userId, status, startDate])
   @@index([categoryId, status, startDate])
   @@index([status, isFeatured, startDate])
@@ -522,7 +487,6 @@ model Form {
   @@index([linkedStoreId])
   @@index([status])
   @@index([type])
-  // ⚡ Performance: Composite indexes for form queries
   @@index([userId, status, createdAt])
   @@index([type, status, createdAt])
   @@map("forms")
@@ -531,8 +495,8 @@ model Form {
 model FormIntegration {
   id             String    @id @default(uuid())
   formId         String
-  type           String // "google_sheets", "notion", "airtable", etc.
-  name           String? // User-friendly name
+  type           String
+  name           String?
   spreadsheetId  String?
   spreadsheetUrl String?
   sheetName      String?
@@ -542,7 +506,7 @@ model FormIntegration {
   accessToken    String?
   refreshToken   String?
   tokenExpiry    DateTime?
-  settings       Json? // Additional settings like column mappings
+  settings       Json?
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -588,10 +552,10 @@ model FormField {
 
 model addresses {
   id          String   @id @default(uuid())
-  userId      String? // 🆕 اختياري - للمستخدمين المسجلين فقط
+  userId      String?
   label       String
   fullName    String
-  phoneNumber String // 🔑 المفتاح الرئيسي للربط
+  phoneNumber String
   country     String   @default("Iraq")
   city        String
   district    String?
@@ -605,12 +569,12 @@ model addresses {
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  users       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  users       User?    @relation(fields: [userId], references: [id])
   orders      orders[]
 
   @@index([isDefault])
   @@index([userId])
-  @@index([phoneNumber]) // 🆕 للبحث السريع بالهاتف
+  @@index([phoneNumber])
 }
 
 model calendar_integrations {
@@ -816,10 +780,9 @@ model form_submissions {
   form           Form     @relation("submissions", fields: [formId], references: [id], onDelete: Cascade)
   user           User?    @relation(fields: [userId], references: [id])
 
-  // ⚡ Performance: Optimized indexes for submission queries
-  @@index([formId, completedAt(sort: Desc)]) // Timeline view with cursor pagination
-  @@index([formId, userId]) // Check if user already submitted
-  @@index([completedAt]) // Analytics date range queries
+  @@index([formId, completedAt(sort: Desc)])
+  @@index([formId, userId])
+  @@index([completedAt])
   @@index([formId])
   @@index([userId])
 }
@@ -883,8 +846,8 @@ model notifications {
   eventId   String?
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
+  event     Event?           @relation(fields: [eventId], references: [id])
   users     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event     Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([isRead])
@@ -912,10 +875,10 @@ model order_items {
 model orders {
   id                 String         @id @default(uuid())
   orderNumber        String         @unique
-  userId             String? // 🆕 اختياري - للضيوف
+  userId             String?
   storeId            String
   addressId          String
-  phoneNumber        String // 🆕 المفتاح الرئيسي للربط والتتبع
+  phoneNumber        String
   status             OrderStatus    @default(PENDING)
   subtotal           Decimal        @db.Decimal(12, 2)
   shippingFee        Decimal        @default(0) @db.Decimal(12, 2)
@@ -936,7 +899,7 @@ model orders {
   addresses          addresses      @relation(fields: [addressId], references: [id])
   coupons            coupons?       @relation(fields: [couponId], references: [id])
   stores             Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  users              User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  users              User?          @relation(fields: [userId], references: [id])
 
   @@index([couponId])
   @@index([createdAt])
@@ -944,7 +907,7 @@ model orders {
   @@index([status])
   @@index([storeId])
   @@index([userId])
-  @@index([phoneNumber]) // 🆕 للبحث والتتبع
+  @@index([phoneNumber])
 }
 
 model posts {
@@ -1016,25 +979,23 @@ model products {
   trackInventory     Boolean              @default(true)
   cart_items         cart_items[]
   order_items        order_items[]
+  productAttributes  product_attributes[]
   product_images     product_images[]
+  variants           product_variants[]
   product_categories product_categories?  @relation(fields: [categoryId], references: [id])
   stores             Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
   reviews            reviews[]
   wishlists          wishlists[]
-  variants           product_variants[]
-  productAttributes  product_attributes[]
 
   @@index([categoryId])
   @@index([isFeatured])
   @@index([status])
   @@index([storeId])
-  // ⚡ Performance: Composite indexes for product queries
   @@index([storeId, status, createdAt])
   @@index([storeId, isFeatured, status])
   @@index([categoryId, status, createdAt])
 }
 
-// نظام متغيرات المنتج (المقاسات، الألوان، إلخ)
 model product_variants {
   id             String   @id @default(cuid())
   productId      String
@@ -1042,30 +1003,27 @@ model product_variants {
   price          Decimal  @db.Decimal(12, 2)
   compareAtPrice Decimal? @db.Decimal(12, 2)
   stock          Int      @default(0)
-  attributes     Json // {"size": "XL", "color": "أحمر"}
+  attributes     Json
   imageUrl       String?
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  product products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product        products @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, sku])
   @@index([productId])
   @@index([isActive])
 }
 
-// خصائص المنتج الديناميكية (طريقة التوصيل، الضمان، إلخ)
 model product_attributes {
   id        String   @id @default(cuid())
   productId String
-  key       String // المفتاح (مثل: deliveryMethod, warranty)
-  value     String // القيمة بالإنجليزية
-  valueAr   String? // القيمة بالعربية
+  key       String
+  value     String
+  valueAr   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  product products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   products @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, key])
   @@index([productId])
@@ -1145,11 +1103,8 @@ model security_preferences {
   failedLoginThreshold      Int      @default(3)
   failedLoginTimeWindow     Int      @default(15)
   autoBlockSuspiciousIp     Boolean  @default(false)
-  
-  // ===== IP Alert Settings (Simplified) =====
-  alertOnNewIP              Boolean  @default(true)  // إرسال تنبيه عند تسجيل دخول من IP جديد
-  trustedIpFingerprints     String[] @default([])    // HMAC-SHA256 fingerprints of trusted IPs
-  
+  alertOnNewIP              Boolean  @default(true)
+  trustedIpFingerprints     String[] @default([])
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime
   users                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1239,6 +1194,180 @@ model wishlists {
   @@unique([userId, productId])
   @@index([productId])
   @@index([userId])
+}
+
+model UserFile {
+  id        String       @id @default(uuid())
+  userId    String
+  key       String       @unique
+  fileName  String
+  fileType  String
+  fileSize  BigInt
+  category  FileCategory
+  entityId  String?
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([category])
+  @@index([entityId])
+  @@map("user_files")
+}
+
+model TelegramSession {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  sessionId      String    @unique
+  expiresAt      DateTime
+  verifiedAt     DateTime?
+  verifiedChatId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@map("telegram_sessions")
+}
+
+model TelegramWebhookLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  updateId    String    @unique
+  eventType   String
+  payload     Json
+  verified    Boolean   @default(false)
+  status      String    @default("pending")
+  error       String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  user        User?     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status])
+  @@map("telegram_webhook_logs")
+}
+
+/// 🔐 الرموز الاحتياطية للمصادقة الثنائية
+model TwoFactorBackupCode {
+  id        String    @id @default(uuid())
+  userId    String
+  codeHash  String
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([codeHash])
+  @@map("two_factor_backup_codes")
+}
+
+/// 🔐 جلسات انتظار 2FA (عند تسجيل الدخول)
+model PendingTwoFactorSession {
+  id        String   @id @default(uuid())
+  userId    String
+  email     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("pending_two_factor_sessions")
+}
+
+/// 🔒 سجل قفل الحسابات
+model AccountLockout {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  lockCount   Int       @default(0)
+  lockedUntil DateTime?
+  lastAttempt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([lockedUntil])
+  @@map("account_lockouts")
+}
+
+/// 🔐 رموز OTP للتحقق عبر واتساب
+model WhatsappOtp {
+  id          String         @id @default(uuid())
+  userId      String?
+  phoneNumber String?
+  email       String?
+  codeHash    String
+  type        OtpType
+  attempts    Int            @default(0)
+  verified    Boolean        @default(false)
+  verifiedAt  DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime       @default(now())
+  sentVia     MessageChannel @default(WHATSAPP)
+  user        User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([phoneNumber])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([verified])
+  @@map("whatsapp_otps")
+}
+
+/// 📱 إشعارات واتساب
+model WhatsappNotification {
+  id           String                     @id @default(uuid())
+  userId       String?
+  phoneNumber  String
+  type         WhatsappNotificationType
+  template     String
+  content      String
+  status       WhatsappNotificationStatus @default(PENDING)
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  failedAt     DateTime?
+  errorMessage String?
+  orderId      String?
+  createdAt    DateTime                   @default(now())
+  user         User?                      @relation(fields: [userId], references: [id])
+
+  @@index([phoneNumber])
+  @@index([status])
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("whatsapp_notifications")
+}
+
+/// 🔒 سجل قفل عناوين IP
+model IPLockout {
+  id           String    @id @default(uuid())
+  ipAddress    String    @unique
+  attemptCount Int       @default(0)
+  lockedUntil  DateTime?
+  lastAttempt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([lockedUntil])
+  @@map("ip_lockouts")
+}
+
+/// 📊 سجل محاولات تسجيل الدخول
+model LoginAttempt {
+  id        String   @id @default(uuid())
+  email     String
+  ipAddress String?
+  success   Boolean  @default(false)
+  reason    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([ipAddress])
+  @@index([createdAt])
+  @@index([success])
+  @@map("login_attempts")
 }
 
 enum Role {
@@ -1366,7 +1495,6 @@ enum InvitationStatus {
 }
 
 enum NotificationType {
-  // Orders/Store
   ORDER_STATUS_CHANGED
   ORDER_CONFIRMED
   ORDER_SHIPPED
@@ -1380,7 +1508,6 @@ enum NotificationType {
   NEW_PRODUCT_REVIEW
   PAYMENT_RECEIVED
   REFUND_REQUESTED
-  // Events
   NEW_REGISTRATION
   REGISTRATION_CANCELLED
   WAITLIST_PROMOTION
@@ -1390,7 +1517,6 @@ enum NotificationType {
   ORGANIZER_ANNOUNCEMENT
   EVENT_STARTING_SOON
   ORGANIZER_INVITATION
-  // Security
   SECURITY_ALERT
   NEW_LOGIN
   SUSPICIOUS_ACTIVITY
@@ -1398,16 +1524,13 @@ enum NotificationType {
   SESSION_EXPIRED
   TWO_FACTOR_ENABLED
   TWO_FACTOR_DISABLED
-  // Forms
   FORM_SUBMISSION
   FORM_RESPONSE
   FORM_SHARED
-  // Todos
   TODO_OVERDUE
   TODO_REMINDER
   TODO_DAILY_REMINDER
   TODO_DUE_SOON
-  // General
   SYSTEM
   MESSAGE
 }
@@ -1452,13 +1575,11 @@ enum SecurityAction {
   NEW_DEVICE_LOGIN
   SUSPICIOUS_ACTIVITY
   FAILED_LOGIN_THRESHOLD
-  // 🔐 2FA Actions
   TWO_FACTOR_SETUP_STARTED
   TWO_FACTOR_ENABLED
   TWO_FACTOR_DISABLED
   TWO_FACTOR_FAILED
   TWO_FACTOR_BACKUP_REGENERATED
-  // 🔒 Security Settings
   SECURITY_SETTINGS_CHANGED
 }
 
@@ -1493,7 +1614,6 @@ enum Visibility {
   PRIVATE
 }
 
-// ===== File Categories for S3 Storage =====
 enum FileCategory {
   AVATAR
   COVER
@@ -1506,28 +1626,6 @@ enum FileCategory {
   BANNER
 }
 
-// ===== User Files (S3 Storage Tracking) =====
-model UserFile {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  key      String // S3 key (e.g., users/{userId}/profile/avatar/uuid.webp)
-  fileName String // Original filename
-  fileType String // MIME type (e.g., image/webp)
-  fileSize BigInt // Size in bytes
-  category FileCategory // Type of file
-  entityId String? // Related entity ID (formId, eventId, productId)
-
-  createdAt DateTime @default(now())
-
-  @@unique([key])
-  @@index([userId])
-  @@index([category])
-  @@index([entityId])
-  @@map("user_files")
-}
-
 enum WaitlistStatus {
   WAITING
   NOTIFIED
@@ -1536,110 +1634,17 @@ enum WaitlistStatus {
   CANCELLED
 }
 
-// ===== Telegram Session =====
-model TelegramSession {
-  id     String @id @default(uuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  sessionId String   @unique
-  expiresAt DateTime
-
-  verifiedAt     DateTime?
-  verifiedChatId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([sessionId])
-  @@index([expiresAt])
-  @@map("telegram_sessions")
-}
-
-// ===== Telegram Webhook Log =====
-model TelegramWebhookLog {
-  id     String  @id @default(uuid())
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  updateId  String @unique
-  eventType String
-  payload   Json
-
-  verified    Boolean   @default(false)
-  status      String    @default("pending")
-  error       String?
-  processedAt DateTime?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([createdAt])
-  @@index([status])
-  @@map("telegram_webhook_logs")
-}
-
-// ===== Two-Factor Authentication =====
-
-/// 🔐 الرموز الاحتياطية للمصادقة الثنائية
-model TwoFactorBackupCode {
-  id        String    @id @default(uuid())
-  userId    String
-  codeHash  String // SHA-256 hash للرمز
-  used      Boolean   @default(false)
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([codeHash])
-  @@map("two_factor_backup_codes")
-}
-
-/// 🔐 جلسات انتظار 2FA (عند تسجيل الدخول)
-model PendingTwoFactorSession {
-  id        String   @id @default(uuid())
-  userId    String
-  email     String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("pending_two_factor_sessions")
-}
-
-// ===== Account Lockout =====
-
-/// 🔒 سجل قفل الحسابات
-model AccountLockout {
-  id          String    @id @default(uuid())
-  email       String    @unique
-  lockCount   Int       @default(0) // عدد مرات القفل
-  lockedUntil DateTime? // تاريخ انتهاء القفل
-  lastAttempt DateTime? // آخر محاولة
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([lockedUntil])
-  @@map("account_lockouts")
-}
-
-// ===== WhatsApp Checkout System =====
-
 /// 📱 نوع حساب المستخدم
 enum AccountType {
-  REGULAR // حساب عادي مسجل
-  GUEST_CHECKOUT // حساب ضيف من الشراء
+  REGULAR
+  GUEST_CHECKOUT
 }
 
 /// 📲 نوع رمز OTP
 enum OtpType {
-  CHECKOUT // للشراء
-  LOGIN // لتسجيل الدخول
-  VERIFICATION // للتحقق العام
+  CHECKOUT
+  LOGIN
+  VERIFICATION
 }
 
 /// 📨 قناة إرسال الرسائل
@@ -1667,268 +1672,3 @@ enum WhatsappNotificationType {
   ORDER_DELIVERED
   ORDER_CANCELLED
 }
-
-/// 🔐 رموز OTP للتحقق عبر واتساب
-model WhatsappOtp {
-  id          String    @id @default(uuid())
-  userId      String?
-  phoneNumber String?
-  email       String?
-  codeHash    String // 🔒 Hash للرمز (bcrypt) - لا نخزن النص الصريح أبداً
-  type        OtpType
-  attempts    Int       @default(0)
-  verified    Boolean   @default(false)
-  verifiedAt  DateTime?
-  expiresAt   DateTime
-  createdAt   DateTime  @default(now())
-
-  // Fallback tracking
-  sentVia MessageChannel @default(WHATSAPP)
-
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([phoneNumber])
-  @@index([email])
-  @@index([expiresAt])
-  @@index([verified])
-  @@map("whatsapp_otps")
-}
-
-/// 📱 إشعارات واتساب
-model WhatsappNotification {
-  id           String                     @id @default(uuid())
-  userId       String?
-  phoneNumber  String
-  type         WhatsappNotificationType
-  template     String
-  content      String                     @db.Text
-  status       WhatsappNotificationStatus @default(PENDING)
-  sentAt       DateTime?
-  deliveredAt  DateTime?
-  failedAt     DateTime?
-  errorMessage String?
-  orderId      String? // ربط بالطلب (اختياري)
-  createdAt    DateTime                   @default(now())
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([phoneNumber])
-  @@index([status])
-  @@index([orderId])
-  @@index([createdAt])
-  @@map("whatsapp_notifications")
-}
-
-/// 🔒 سجل قفل عناوين IP
-model IPLockout {
-  id           String    @id @default(uuid())
-  ipAddress    String    @unique
-  attemptCount Int       @default(0)
-  lockedUntil  DateTime?
-  lastAttempt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  @@index([lockedUntil])
-  @@map("ip_lockouts")
-}
-
-/// 📊 سجل محاولات تسجيل الدخول
-model LoginAttempt {
-  id        String   @id @default(uuid())
-  email     String
-  ipAddress String?
-  success   Boolean  @default(false)
-  reason    String? // سبب الفشل
-  metadata  Json?
-  createdAt DateTime @default(now())
-
-  @@index([email])
-  @@index([ipAddress])
-  @@index([createdAt])
-  @@index([success])
-  @@map("login_attempts")
-}
-
-// ===== Todo System (نظام المهام) - DISABLED =====
-// Will be launched later. Keep code for future activation.
-
-/**
- * /// نوع قائمة المهام
- * enum TodoListType {
- * WORKSPACE  // مساحة عمل مشتركة
- * PERSONAL   // شخصية
- * PORTFOLIO  // معرض/مشاريع
- * }
- * /// دور العضو في مساحة العمل
- * enum ListMemberRole {
- * OWNER   // المالك (كامل الصلاحيات)
- * ADMIN   // مدير (إدارة المهام)
- * MEMBER  // عضو (إضافة وتعديل مهامه)
- * VIEWER  // مشاهد فقط
- * }
- * /// 📋 قوائم المهام
- * model TodoList {
- * id        String       @id @default(uuid())
- * userId    String       // المالك الأصلي
- * name      String
- * nameAr    String?
- * color     String       @default("#4FADC0")
- * icon      String?
- * order     Int          @default(0)
- * isDefault Boolean      @default(false)
- * // نظام المشاركة
- * type      TodoListType @default(PERSONAL)
- * isShared  Boolean      @default(false)
- * createdAt DateTime     @default(now())
- * updatedAt DateTime     @updatedAt
- * deletedAt DateTime?    // Soft Delete
- * todos       Todo[]
- * members     TodoListMember[]
- * invitations TodoListInvitation[]
- * user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- * @@index([userId])
- * @@index([order])
- * @@index([type])
- * @@index([isShared])
- * @@index([deletedAt])
- * @@map("todo_lists")
- * }
- * /// 👥 أعضاء مساحة العمل
- * model TodoListMember {
- * id       String         @id @default(uuid())
- * listId   String
- * userId   String
- * role     ListMemberRole @default(MEMBER)
- * joinedAt DateTime       @default(now())
- * list TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
- * user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
- * @@unique([listId, userId]) // لا يمكن إضافة نفس العضو مرتين
- * @@index([listId])
- * @@index([userId])
- * @@index([role])
- * @@map("todo_list_members")
- * }
- * /// 📨 دعوات الانضمام
- * model TodoListInvitation {
- * id          String           @id @default(uuid())
- * listId      String
- * email       String           // البريد المدعو (حتى لو غير مسجل)
- * role        ListMemberRole   @default(MEMBER)
- * invitedById String           // من أرسل الدعوة
- * token       String           @unique // رابط فريد للقبول
- * status      InvitationStatus @default(PENDING)
- * message     String?          // رسالة اختيارية مع الدعوة
- * expiresAt   DateTime         // صلاحية الدعوة (7 أيام افتراضياً)
- * acceptedAt  DateTime?
- * declinedAt  DateTime?
- * createdAt   DateTime         @default(now())
- * list      TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
- * invitedBy User     @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
- * @@index([listId])
- * @@index([email])
- * @@index([token])
- * @@index([status])
- * @@index([invitedById])
- * @@map("todo_list_invitations")
- * }
- * /// ✅ المهام
- * model Todo {
- * id          String       @id @default(uuid())
- * listId      String
- * userId      String
- * title       String       @db.VarChar(500) // حد أقصى للعنوان
- * description String?      @db.VarChar(5000) // حد أقصى للوصف
- * priority    TodoPriority @default(NORMAL)
- * status      TodoStatus   @default(PENDING)
- * dueDate     DateTime?
- * dueTime     String?      @db.VarChar(10) // وقت محدد مثل "14:30"
- * reminder    DateTime?
- * order       Int          @default(0)
- * completedAt DateTime?
- * isStarred   Boolean      @default(false)
- * // ربط بالأحداث (اختياري)
- * eventId String?
- * // Soft Delete & Security
- * deletedAt   DateTime? // Soft Delete
- * deletedBy   String?   // من قام بالحذف
- * createdByIp String?   @db.VarChar(45) // IP عند الإنشاء
- * createdAt DateTime @default(now())
- * updatedAt DateTime @updatedAt
- * list       TodoList       @relation(fields: [listId], references: [id], onDelete: Cascade)
- * subtasks   Subtask[]
- * activities TodoActivity[]
- * @@index([listId])
- * @@index([userId])
- * @@index([status])
- * @@index([dueDate])
- * @@index([priority])
- * @@index([eventId])
- * @@index([deletedAt])
- * @@map("todos")
- * }
- * /// 📊 سجل النشاطات (Audit Trail)
- * model TodoActivity {
- * id        String           @id @default(uuid())
- * todoId    String
- * userId    String
- * action    TodoActivityType
- * field     String? // الحقل الذي تغير (title, status, priority, etc.)
- * oldValue  String? // القيمة القديمة
- * newValue  String? // القيمة الجديدة
- * metadata  Json? // بيانات إضافية
- * createdAt DateTime         @default(now())
- * todo Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
- * user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- * @@index([todoId])
- * @@index([userId])
- * @@index([createdAt])
- * @@index([action])
- * @@map("todo_activities")
- * }
- * /// 📝 المهام الفرعية
- * model Subtask {
- * id          String   @id @default(uuid())
- * todoId      String
- * title       String
- * isCompleted Boolean  @default(false)
- * order       Int      @default(0)
- * createdAt   DateTime @default(now())
- * todo Todo @relation(fields: [todoId], references: [id], onDelete: Cascade)
- * @@index([todoId])
- * @@map("subtasks")
- * }
- * /// أولوية المهمة
- * enum TodoPriority {
- * LOW    // منخفض
- * NORMAL // عادي
- * HIGH   // مرتفع
- * URGENT // عاجل
- * }
- * /// حالة المهمة
- * enum TodoStatus {
- * PENDING     // قيد الانتظار
- * IN_PROGRESS // جاري العمل
- * COMPLETED   // مكتمل
- * ARCHIVED    // مؤرشف
- * }
- * /// نوع نشاط المهمة
- * enum TodoActivityType {
- * CREATED           // تم الإنشاء
- * UPDATED           // تم التحديث
- * DELETED           // تم الحذف
- * COMPLETED         // تم الإكمال
- * UNCOMPLETED       // تم إلغاء الإكمال
- * STATUS_CHANGED    // تغيير الحالة
- * PRIORITY_CHANGED  // تغيير الأولوية
- * DUE_DATE_CHANGED  // تغيير تاريخ الاستحقاق
- * STARRED           // تم التمييز بنجمة
- * UNSTARRED         // تم إزالة النجمة
- * MOVED_TO_LIST     // نقل لقائمة أخرى
- * SUBTASK_ADDED     // إضافة مهمة فرعية
- * SUBTASK_COMPLETED // إكمال مهمة فرعية
- * SUBTASK_DELETED   // حذف مهمة فرعية
- * REMINDER_SET      // تعيين تذكير
- * REMINDER_REMOVED  // إزالة تذكير
- * }
- */
