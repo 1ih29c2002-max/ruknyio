@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: rukny_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-rukny_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-rukny_io}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rukny_network
+
+  redis:
+    image: redis:6-alpine
+    container_name: rukny_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - rukny_network
+
+  # Adminer - Lightweight Database Management (Development Only)
+  adminer:
+    image: adminer
+    container_name: rukny_adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+    networks:
+      - rukny_network
+    profiles:
+      - development
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  rukny_network:
+    driver: bridge

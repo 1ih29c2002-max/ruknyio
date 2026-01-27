@@ -1,0 +1,740 @@
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { PrismaService } from '../../core/database/prisma/prisma.service';
+import { S3Service } from '../../shared/services/s3.service';
+import { FileCategory } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+import sharp from 'sharp';
+import { fileTypeFromBuffer } from 'file-type';
+import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import { Readable } from 'stream';
+
+/**
+ * Storage Service
+ *
+ * Centralized service for managing user file storage:
+ * - Upload files to S3 with organized paths
+ * - Track file usage in database
+ * - Enforce storage limits
+ * - Handle file deletion and cleanup
+ */
+@Injectable()
+export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
+  private readonly bucket = process.env.S3_BUCKET || 'rukny-storage';
+
+  // Storage limits (in bytes)
+  private readonly DEFAULT_STORAGE_LIMIT = 5 * 1024 * 1024 * 1024; // 5GB
+  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
+  private readonly MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB for avatars
+
+  // Image processing settings
+  private readonly AVATAR_SIZE = 400;
+  private readonly COVER_WIDTH = 1400;
+  private readonly COVER_HEIGHT = 400;
+
+  private readonly ALLOWED_IMAGE_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+  ];
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Service: S3Service,
+  ) {}
+
+  /**
+   * Get user's storage usage and limit
+   */
+  async getStorageUsage(userId: string): Promise<{
+    used: number;
+    limit: number;
+    available: number;
+    percentage: number;
+    files: number;
+  }> {
+    const profile = await this.prisma.profile.findUnique({
+      where: { userId },
+      select: { storageUsed: true, storageLimit: true },
+    });
+
+    const fileCount = await this.prisma.userFile.count({
+      where: { userId },
+    });
+
+    const used = Number(profile?.storageUsed || 0);
+    const limit = Number(profile?.storageLimit || this.DEFAULT_STORAGE_LIMIT);
+    const available = Math.max(0, limit - used);
+    const percentage = limit > 0 ? Math.round((used / limit) * 100) : 0;
+
+    return {
+      used,
+      limit,
+      available,
+      percentage,
+      files: fileCount,
+    };
+  }
+
+  /**
+   * Check if user has enough storage for a file
+   */
+  async checkStorageLimit(userId: string, fileSize: number): Promise<boolean> {
+    const { available } = await this.getStorageUsage(userId);
+    return fileSize <= available;
+  }
+
+  /**
+   * Upload avatar to S3 with processing
+   */
+  async uploadAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    // Normalize file buffer (supports memory/disk/stream shapes)
+    const buffer = await this.normalizeFileToBuffer(file);
+
+    // Determine incoming size
+    const incomingSize =
+      (file && (file.size ?? buffer.length)) || buffer.length;
+
+    // Validate file size
+    if (incomingSize > this.MAX_AVATAR_SIZE) {
+      throw new BadRequestException('حجم الملف يتجاوز 5MB');
+    }
+
+    // Check storage limit
+    const hasSpace = await this.checkStorageLimit(userId, incomingSize);
+    if (!hasSpace) {
+      throw new BadRequestException('لا توجد مساحة تخزين كافية');
+    }
+
+    // Validate file type
+    const fileType = await fileTypeFromBuffer(buffer);
+    if (!fileType || !this.ALLOWED_IMAGE_TYPES.includes(fileType.mime)) {
+      throw new BadRequestException(
+        'نوع الملف غير مسموح. يُسمح فقط بـ JPEG, PNG, WebP, GIF',
+      );
+    }
+
+    // Process image with sharp
+    const processedImage = await sharp(buffer)
+      .resize(this.AVATAR_SIZE, this.AVATAR_SIZE, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .webp({ quality: 90 })
+      .toBuffer();
+
+    // Generate S3 key
+    const filename = `${uuidv4()}.webp`;
+    const key = this.s3Service.getAvatarKey(userId, filename);
+
+    // Delete old avatar if exists
+    await this.deleteFileByCategory(userId, FileCategory.AVATAR);
+
+    // Upload to S3
+    await this.s3Service.uploadBuffer(
+      this.bucket,
+      key,
+      processedImage,
+      'image/webp',
+    );
+
+    // Track file in database
+    await this.trackFile(userId, {
+      key,
+      fileName: file.originalname,
+      fileType: 'image/webp',
+      fileSize: BigInt(processedImage.length),
+      category: FileCategory.AVATAR,
+    });
+
+    this.logger.log(`Avatar uploaded for user ${userId}: ${key}`);
+    return key;
+  }
+
+  /**
+   * Upload cover image to S3 with processing
+   */
+  async uploadCover(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    // Validate file size
+    // Normalize buffer
+    const buffer = await this.normalizeFileToBuffer(file);
+
+    const incomingSize =
+      (file && (file.size ?? buffer.length)) || buffer.length;
+
+    if (incomingSize > this.MAX_FILE_SIZE) {
+      throw new BadRequestException('حجم الملف يتجاوز 10MB');
+    }
+
+    // Check storage limit
+    const hasSpace = await this.checkStorageLimit(userId, incomingSize);
+    if (!hasSpace) {
+      throw new BadRequestException('لا توجد مساحة تخزين كافية');
+    }
+
+    // Validate file type
+    const fileType = await fileTypeFromBuffer(buffer);
+    if (!fileType || !this.ALLOWED_IMAGE_TYPES.includes(fileType.mime)) {
+      throw new BadRequestException(
+        'نوع الملف غير مسموح. يُسمح فقط بـ JPEG, PNG, WebP, GIF',
+      );
+    }
+
+    // Process image with sharp
+    const processedImage = await sharp(buffer)
+      .resize(this.COVER_WIDTH, this.COVER_HEIGHT, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    // Generate S3 key
+    const filename = `${uuidv4()}.webp`;
+    const key = this.s3Service.getCoverKey(userId, filename);
+
+    // Delete old cover if exists
+    await this.deleteFileByCategory(userId, FileCategory.COVER);
+
+    // Upload to S3
+    await this.s3Service.uploadBuffer(
+      this.bucket,
+      key,
+      processedImage,
+      'image/webp',
+    );
+
+    // Track file in database
+    await this.trackFile(userId, {
+      key,
+      fileName: file.originalname,
+      fileType: 'image/webp',
+      fileSize: BigInt(processedImage.length),
+      category: FileCategory.COVER,
+    });
+
+    this.logger.log(`Cover uploaded for user ${userId}: ${key}`);
+    return key;
+  }
+
+  /**
+   * Upload form cover image
+   */
+  async uploadFormCover(
+    userId: string,
+    formId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const buffer = await this.normalizeFileToBuffer(file);
+    const incomingSize =
+      (file && (file.size ?? buffer.length)) || buffer.length;
+
+    if (incomingSize > this.MAX_FILE_SIZE) {
+      throw new BadRequestException('حجم الملف يتجاوز 10MB');
+    }
+
+    const hasSpace = await this.checkStorageLimit(userId, incomingSize);
+    if (!hasSpace) {
+      throw new BadRequestException('لا توجد مساحة تخزين كافية');
+    }
+
+    const fileType = await fileTypeFromBuffer(buffer);
+    if (!fileType || !this.ALLOWED_IMAGE_TYPES.includes(fileType.mime)) {
+      throw new BadRequestException('نوع الملف غير مسموح');
+    }
+
+    const processedImage = await sharp(buffer)
+      .resize(1200, 630, { fit: 'cover', position: 'center' })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    const filename = `${uuidv4()}.webp`;
+    const key = this.s3Service.getFormFileKey(
+      userId,
+      formId,
+      'cover',
+      filename,
+    );
+
+    // Delete old form cover if exists
+    await this.deleteFileByEntityAndCategory(
+      userId,
+      formId,
+      FileCategory.FORM_COVER,
+    );
+
+    await this.s3Service.uploadBuffer(
+      this.bucket,
+      key,
+      processedImage,
+      'image/webp',
+    );
+
+    await this.trackFile(userId, {
+      key,
+      fileName: file.originalname,
+      fileType: 'image/webp',
+      fileSize: BigInt(processedImage.length),
+      category: FileCategory.FORM_COVER,
+      entityId: formId,
+    });
+
+    return key;
+  }
+
+  /**
+   * Upload form banner images
+   */
+  async uploadFormBanners(
+    userId: string,
+    formId: string,
+    files: Express.Multer.File[],
+  ): Promise<string[]> {
+    const keys: string[] = [];
+
+    for (const file of files) {
+      const buffer = await this.normalizeFileToBuffer(file);
+      const incomingSize =
+        (file && (file.size ?? buffer.length)) || buffer.length;
+
+      if (incomingSize > this.MAX_FILE_SIZE) {
+        throw new BadRequestException('حجم الملف يتجاوز 10MB');
+      }
+
+      const hasSpace = await this.checkStorageLimit(userId, incomingSize);
+      if (!hasSpace) {
+        throw new BadRequestException('لا توجد مساحة تخزين كافية');
+      }
+
+      const fileType = await fileTypeFromBuffer(buffer);
+      if (!fileType || !this.ALLOWED_IMAGE_TYPES.includes(fileType.mime)) {
+        continue; // Skip invalid files
+      }
+
+      const processedImage = await sharp(buffer)
+        .resize(1400, 400, { fit: 'cover', position: 'center' })
+        .webp({ quality: 85 })
+        .toBuffer();
+
+      const filename = `${uuidv4()}.webp`;
+      const key = this.s3Service.getFormFileKey(
+        userId,
+        formId,
+        'banner',
+        filename,
+      );
+
+      await this.s3Service.uploadBuffer(
+        this.bucket,
+        key,
+        processedImage,
+        'image/webp',
+      );
+
+      await this.trackFile(userId, {
+        key,
+        fileName: file.originalname,
+        fileType: 'image/webp',
+        fileSize: BigInt(processedImage.length),
+        category: FileCategory.FORM_BANNER,
+        entityId: formId,
+      });
+
+      keys.push(key);
+    }
+
+    return keys;
+  }
+
+  /**
+   * Upload event cover image
+   */
+  async uploadEventCover(
+    userId: string,
+    eventId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const buffer = await this.normalizeFileToBuffer(file);
+    const incomingSize =
+      (file && (file.size ?? buffer.length)) || buffer.length;
+
+    if (incomingSize > this.MAX_FILE_SIZE) {
+      throw new BadRequestException('حجم الملف يتجاوز 10MB');
+    }
+
+    const hasSpace = await this.checkStorageLimit(userId, incomingSize);
+    if (!hasSpace) {
+      throw new BadRequestException('لا توجد مساحة تخزين كافية');
+    }
+
+    const fileType = await fileTypeFromBuffer(buffer);
+    if (!fileType || !this.ALLOWED_IMAGE_TYPES.includes(fileType.mime)) {
+      throw new BadRequestException('نوع الملف غير مسموح');
+    }
+
+    const processedImage = await sharp(buffer)
+      .resize(1200, 630, { fit: 'cover', position: 'center' })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    const filename = `${uuidv4()}.webp`;
+    const key = this.s3Service.getEventFileKey(
+      userId,
+      eventId,
+      'cover',
+      filename,
+    );
+
+    await this.deleteFileByEntityAndCategory(
+      userId,
+      eventId,
+      FileCategory.EVENT_COVER,
+    );
+
+    await this.s3Service.uploadBuffer(
+      this.bucket,
+      key,
+      processedImage,
+      'image/webp',
+    );
+
+    await this.trackFile(userId, {
+      key,
+      fileName: file.originalname,
+      fileType: 'image/webp',
+      fileSize: BigInt(processedImage.length),
+      category: FileCategory.EVENT_COVER,
+      entityId: eventId,
+    });
+
+    return key;
+  }
+
+  /**
+   * Upload product image
+   */
+  async uploadProductImage(
+    userId: string,
+    productId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const buffer = await this.normalizeFileToBuffer(file);
+    const incomingSize =
+      (file && (file.size ?? buffer.length)) || buffer.length;
+
+    if (incomingSize > this.MAX_FILE_SIZE) {
+      throw new BadRequestException('حجم الملف يتجاوز 10MB');
+    }
+
+    const hasSpace = await this.checkStorageLimit(userId, incomingSize);
+    if (!hasSpace) {
+      throw new BadRequestException('لا توجد مساحة تخزين كافية');
+    }
+
+    const fileType = await fileTypeFromBuffer(buffer);
+    if (!fileType || !this.ALLOWED_IMAGE_TYPES.includes(fileType.mime)) {
+      throw new BadRequestException('نوع الملف غير مسموح');
+    }
+
+    const processedImage = await sharp(buffer)
+      .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    const filename = `${uuidv4()}.webp`;
+    const key = this.s3Service.getProductFileKey(userId, productId, filename);
+
+    await this.s3Service.uploadBuffer(
+      this.bucket,
+      key,
+      processedImage,
+      'image/webp',
+    );
+
+    await this.trackFile(userId, {
+      key,
+      fileName: file.originalname,
+      fileType: 'image/webp',
+      fileSize: BigInt(processedImage.length),
+      category: FileCategory.PRODUCT_IMAGE,
+      entityId: productId,
+    });
+
+    return key;
+  }
+
+  /**
+   * Normalize various file shapes into a Buffer.
+   * Supports multer memory (`file.buffer`), disk (`file.path`), stream, Blob-like, and serialized Buffer shapes.
+   */
+  private async normalizeFileToBuffer(file: any): Promise<Buffer> {
+    // Try direct buffer-like properties first
+    const fb = file?.buffer ?? file?.content ?? file;
+
+    const normalize = (input: any): Buffer | null => {
+      if (!input) return null;
+      try {
+        if (Buffer.isBuffer(input)) return input;
+        if (input instanceof Uint8Array) return Buffer.from(input);
+        if (typeof input.arrayBuffer === 'function') {
+          const arr = Buffer.from(new Uint8Array(input.arrayBuffer()));
+          return arr;
+        }
+        // Serialized Node Buffer: { type: 'Buffer', data: [...] }
+        if (Array.isArray(input.data)) return Buffer.from(input.data);
+        // Nested buffer: { buffer: { type: 'Buffer', data: [...] } }
+        if (input.buffer && Array.isArray(input.buffer.data))
+          return Buffer.from(input.buffer.data);
+        // Array-like numeric object
+        const keys = Object.keys(input || {})
+          .filter((k) => /^\d+$/.test(k))
+          .sort((a, b) => Number(a) - Number(b));
+        if (keys.length > 0) {
+          const arr = new Uint8Array(keys.length);
+          for (let idx = 0; idx < keys.length; idx++) {
+            const k = keys[idx];
+            arr[idx] = Number(input[k]) || 0;
+          }
+          return Buffer.from(arr);
+        }
+      } catch (e) {
+        // ignore
+      }
+      return null;
+    };
+
+    let buf = normalize(fb);
+
+    // Multer diskStorage -> file.path
+    if (!buf && file?.path) {
+      const p = file.path;
+      if (existsSync(p)) {
+        buf = await readFile(p);
+      }
+    }
+
+    // Readable stream
+    if (!buf && file?.stream) {
+      const stream: Readable = file.stream;
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      buf = Buffer.concat(chunks);
+    }
+
+    // Fallback: try normalize again on full file object
+    if (!buf) buf = normalize(file);
+
+    if (!buf) {
+      throw new BadRequestException('Invalid file buffer provided');
+    }
+
+    return buf;
+  }
+
+  /**
+   * Get presigned URL for a file
+   */
+  async getPresignedUrl(key: string, expiresInSeconds = 3600): Promise<string> {
+    if (!key) return '';
+    if (key.startsWith('http')) return key;
+    return this.s3Service.getPresignedGetUrl(
+      this.bucket,
+      key,
+      expiresInSeconds,
+    );
+  }
+
+  /**
+   * Track a file in the database
+   */
+  private async trackFile(
+    userId: string,
+    data: {
+      key: string;
+      fileName: string;
+      fileType: string;
+      fileSize: bigint;
+      category: FileCategory;
+      entityId?: string;
+    },
+  ): Promise<void> {
+    // Create file record
+    await this.prisma.userFile.create({
+      data: {
+        userId,
+        key: data.key,
+        fileName: data.fileName,
+        fileType: data.fileType,
+        fileSize: data.fileSize,
+        category: data.category,
+        entityId: data.entityId,
+      },
+    });
+
+    // Update storage usage
+    await this.prisma.profile.update({
+      where: { userId },
+      data: {
+        storageUsed: { increment: data.fileSize },
+      },
+    });
+  }
+
+  /**
+   * Delete a file by category (for single-file categories like avatar, cover)
+   */
+  async deleteFileByCategory(
+    userId: string,
+    category: FileCategory,
+  ): Promise<void> {
+    const files = await this.prisma.userFile.findMany({
+      where: { userId, category },
+    });
+
+    for (const file of files) {
+      await this.deleteFile(userId, file.id);
+    }
+  }
+
+  /**
+   * Delete a file by entity and category
+   */
+  async deleteFileByEntityAndCategory(
+    userId: string,
+    entityId: string,
+    category: FileCategory,
+  ): Promise<void> {
+    const files = await this.prisma.userFile.findMany({
+      where: { userId, entityId, category },
+    });
+
+    for (const file of files) {
+      await this.deleteFile(userId, file.id);
+    }
+  }
+
+  /**
+   * Delete a specific file
+   */
+  async deleteFile(userId: string, fileId: string): Promise<void> {
+    const file = await this.prisma.userFile.findFirst({
+      where: { id: fileId, userId },
+    });
+
+    if (!file) return;
+
+    // Delete from S3
+    await this.s3Service.deleteObject(this.bucket, file.key);
+
+    // Update storage usage
+    await this.prisma.profile.update({
+      where: { userId },
+      data: {
+        storageUsed: { decrement: file.fileSize },
+      },
+    });
+
+    // Delete record
+    await this.prisma.userFile.delete({
+      where: { id: fileId },
+    });
+
+    this.logger.log(`Deleted file ${file.key} for user ${userId}`);
+  }
+
+  /**
+   * Delete all files for a user (account deletion)
+   */
+  async deleteAllUserFiles(userId: string): Promise<void> {
+    // Delete from S3
+    await this.s3Service.deleteUserFiles(this.bucket, userId);
+
+    // Delete all records
+    await this.prisma.userFile.deleteMany({
+      where: { userId },
+    });
+
+    // Reset storage usage
+    await this.prisma.profile.update({
+      where: { userId },
+      data: { storageUsed: 0 },
+    });
+
+    this.logger.log(`Deleted all files for user ${userId}`);
+  }
+
+  /**
+   * Get list of user files
+   */
+  async getUserFiles(
+    userId: string,
+    options?: {
+      category?: FileCategory;
+      entityId?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
+    files: any[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const page = options?.page || 1;
+    const limit = options?.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const where: any = { userId };
+    if (options?.category) where.category = options.category;
+    if (options?.entityId) where.entityId = options.entityId;
+
+    const [files, total] = await Promise.all([
+      this.prisma.userFile.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.userFile.count({ where }),
+    ]);
+
+    // Convert keys to presigned URLs
+    const filesWithUrls = await Promise.all(
+      files.map(async (file) => ({
+        ...file,
+        fileSize: Number(file.fileSize),
+        url: await this.getPresignedUrl(file.key),
+      })),
+    );
+
+    return {
+      files: filesWithUrls,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Delete files by entity (when deleting form, event, product)
+   */
+  async deleteFilesByEntity(userId: string, entityId: string): Promise<void> {
+    const files = await this.prisma.userFile.findMany({
+      where: { userId, entityId },
+    });
+
+    for (const file of files) {
+      await this.deleteFile(userId, file.id);
+    }
+  }
+}

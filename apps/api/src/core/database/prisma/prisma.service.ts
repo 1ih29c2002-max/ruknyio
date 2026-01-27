@@ -1,0 +1,160 @@
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
+import { PrismaClient, Prisma } from '@prisma/client';
+import { DB_PERFORMANCE } from '../database.constants';
+
+/**
+ * ⚡ Extended Prisma Client with performance optimizations
+ */
+@Injectable()
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
+  private readonly logger = new Logger(PrismaService.name);
+  private queryCount = 0;
+  private slowQueryCount = 0;
+
+  constructor() {
+    super({
+      log: [
+        // ⚡ Performance: Log slow queries in development
+        { emit: 'event', level: 'query' },
+        { emit: 'stdout', level: 'error' },
+        { emit: 'stdout', level: 'warn' },
+      ],
+      // ⚡ Performance: Connection pooling configuration
+      // Additional parameters should be in DATABASE_URL
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      },
+    });
+
+    // ⚡ Query performance monitoring
+    // @ts-ignore - Prisma event typing
+    this.$on('query', (e: Prisma.QueryEvent) => {
+      this.queryCount++;
+
+      if (e.duration > DB_PERFORMANCE.VERY_SLOW_QUERY_THRESHOLD) {
+        this.slowQueryCount++;
+        this.logger.error(
+          `🔴 Very Slow Query (${e.duration}ms): ${e.query.substring(0, 200)}...`,
+        );
+      } else if (
+        e.duration > DB_PERFORMANCE.SLOW_QUERY_THRESHOLD &&
+        process.env.NODE_ENV !== 'production'
+      ) {
+        this.logger.warn(`⚠️ Slow Query (${e.duration}ms): ${e.query.substring(0, 200)}...`);
+      }
+    });
+  }
+
+  async onModuleInit() {
+    const startTime = Date.now();
+    await this.$connect();
+    const duration = Date.now() - startTime;
+    this.logger.log(`✅ Database connected successfully (${duration}ms)`);
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
+    this.logger.log('🔌 Database disconnected');
+  }
+
+  /**
+   * ⚡ Get database health status
+   */
+  async getHealthStatus(): Promise<{
+    connected: boolean;
+    responseTime: number;
+    queryCount: number;
+    slowQueryCount: number;
+    poolInfo?: any;
+  }> {
+    const startTime = Date.now();
+    let connected = false;
+
+    try {
+      // Simple query to test connection
+      await this.$queryRaw`SELECT 1`;
+      connected = true;
+    } catch (error) {
+      this.logger.error('Database health check failed:', error);
+    }
+
+    const responseTime = Date.now() - startTime;
+
+    return {
+      connected,
+      responseTime,
+      queryCount: this.queryCount,
+      slowQueryCount: this.slowQueryCount,
+    };
+  }
+
+  /**
+   * ⚡ Reset query counters (useful for monitoring)
+   */
+  resetQueryCounters(): void {
+    this.queryCount = 0;
+    this.slowQueryCount = 0;
+  }
+
+  /**
+   * ⚡ Execute raw query with timeout
+   */
+  async executeWithTimeout<T>(
+    query: () => Promise<T>,
+    timeoutMs: number = DB_PERFORMANCE.SLOW_QUERY_THRESHOLD * 2,
+  ): Promise<T> {
+    return Promise.race([
+      query(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs}ms`)), timeoutMs),
+      ),
+    ]);
+  }
+
+  /**
+   * ⚡ Soft delete helper - marks record as deleted without removing
+   */
+  async softDelete<T extends { deletedAt?: Date | null }>(
+    model: any,
+    where: any,
+  ): Promise<T> {
+    return model.update({
+      where,
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  /**
+   * ⚡ Batch operations helper - processes in chunks to avoid timeouts
+   */
+  async batchProcess<T, R>(
+    items: T[],
+    processor: (item: T) => Promise<R>,
+    batchSize: number = 100,
+  ): Promise<R[]> {
+    const results: R[] = [];
+
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(processor));
+      results.push(...batchResults);
+
+      // Small delay between batches to prevent overwhelming the DB
+      if (i + batchSize < items.length) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    }
+
+    return results;
+  }
+}
