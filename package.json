@@ -16,7 +16,7 @@
     "test": "npm run test --workspaces",
     "lint": "npm run lint --workspaces",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "prepare": "node -e \"if (process.env.CI || process.env.VERCEL || process.env.SKIP_HUSKY) process.exit(0);\" || true",
+    "prepare": "node -e \"if (process.env.CI || process.env.VERCEL || process.env.SKIP_HUSKY) process.exit(0);\"",
     "postinstall": "node -e \"try { require('child_process').execSync('prisma generate --schema=apps/api/prisma/schema.prisma', {stdio: 'inherit', cwd: process.cwd()}); } catch(e) { if (process.env.CI || process.env.VERCEL) { process.exit(0); } throw e; }\""
   },
   "devDependencies": {
