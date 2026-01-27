@@ -1,47 +1,99 @@
-# Dependencies
+# ============================================
+# 🔐 SECURITY - NEVER COMMIT THESE FILES
+# ============================================
+# Environment files (contain secrets)
+.env
+.env.*
+!.env.example
+*.env
+.envrc
+
+# Secret files
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# ============================================
+# 📦 Dependencies
+# ============================================
 node_modules/
 .pnp
 .pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
 
-# Testing
+# ============================================
+# 🧪 Testing
+# ============================================
 coverage/
-*.log
+.nyc_output/
+test-results/
+playwright-report/
 
-# Production
+# ============================================
+# 🏗️ Build & Production
+# ============================================
 dist/
 build/
 .next/
 out/
+.turbo/
+.vercel/
+.output/
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE
+# ============================================
+# 💻 IDE & Editors
+# ============================================
 .vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-*
 
-# OS
+# ============================================
+# 🖥️ Operating System
+# ============================================
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Misc
-*.tsbuildinfo
-.cache/
-
-# Prisma
+# ============================================
+# 📊 Prisma
+# ============================================
 apps/api/prisma/migrations/**/migration.sql.bak
 
-# Logs
+# ============================================
+# 📝 Logs
+# ============================================
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+pnpm-debug.log*
+
+# ============================================
+# 📁 Uploads & User Data
+# ============================================
+uploads/
+!uploads/.gitkeep
+temp/
+!temp/.gitkeep
+
+# ============================================
+# 🔧 Misc
+# ============================================
+*.tsbuildinfo
+.cache/
+*.local
