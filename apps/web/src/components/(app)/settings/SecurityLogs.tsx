@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSecuritySettings, SecurityLog } from '@/lib/hooks/settings/useSecuritySettings';
 import { format, formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { ar } from 'date-fns/locale/ar';
 
 const ACTION_LABELS: Record<string, string> = {
   'LOGIN_SUCCESS': 'تسجيل دخول',
