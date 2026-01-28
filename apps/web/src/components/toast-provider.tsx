@@ -7,7 +7,7 @@
  * Uses Sonner for beautiful, accessible toasts.
  */
 
-import { Toaster, toast as sonnerToast } from 'sonner';
+import { Toaster, toast as sonnerToast, type ExternalToast } from 'sonner';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -61,7 +61,7 @@ export interface ToastOptions {
   };
   cancel?: {
     label: string;
-    onClick?: () => void;
+    onClick: () => void;
   };
   onDismiss?: () => void;
   onAutoClose?: () => void;
@@ -153,7 +153,9 @@ export const toast = {
    * 📝 Custom toast with full control
    */
   custom: (content: ReactNode, options?: ToastOptions) => {
-    return sonnerToast.custom(() => content, options);
+    // Wrap in a Fragment so the callback always returns a ReactElement,
+    // which matches Sonner's expected type.
+    return sonnerToast.custom(() => <>{content}</>, options as ExternalToast);
   },
 };
 
