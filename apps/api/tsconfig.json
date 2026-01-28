@@ -19,7 +19,6 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
-    "isolatedModules": true,
     "types": []
   },
   "include": ["src/**/*"],
