@@ -4,7 +4,7 @@ services:
     name: rukny-api
     env: node
     plan: starter
-    buildCommand: cd apps/api && npm install --include=dev && rm -rf node_modules/.prisma/client && npx prisma generate && npx nest build
+    buildCommand: cd apps/api && npm install --include=dev && rm -rf node_modules/.prisma/client && NODE_OPTIONS="--max-old-space-size=4096" npx prisma generate && NODE_OPTIONS="--max-old-space-size=4096" npm run build
     startCommand: cd apps/api && npm run start:prod
     envVars:
       - key: NODE_ENV
