@@ -9,6 +9,7 @@ import {
   UseGuards,
   Req,
   Res,
+  Param,
 } from '@nestjs/common';
 import {
   ApiTags,
