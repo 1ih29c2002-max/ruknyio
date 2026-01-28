@@ -34,8 +34,8 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        value: https://rukny-api.onrender.com
+        value: https://api.rukny.xyz
       - key: NEXT_PUBLIC_APP_URL
-        value: https://rukny.io
+        value: https://rukny.xyz
       - key: API_BACKEND_URL
-        value: https://rukny-api.onrender.com
+        value: https://api.rukny.xyz
