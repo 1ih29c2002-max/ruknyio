@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import { motion, AnimatePresence, type TargetAndTransition, type Transition } from 'motion/react';
+import { motion, AnimatePresence, type TargetAndTransition, type Transition } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface RotatingTextProps {

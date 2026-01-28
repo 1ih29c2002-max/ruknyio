@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { AnimatedThemeToggler } from '@/components/ui/animated-theme-toggler';
 import { Menu, ChevronDown, User, FileText, ShoppingBag, Calendar, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+// import { useAuth } from "@/hooks/useAuth";
 
 const products = [
   {
@@ -46,7 +46,7 @@ export function Header() {
   const [isProductsOpen, setIsProductsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = false; // TODO: implement useAuth hook
 
   // تأثير الظل عند التمرير
   useEffect(() => {
