@@ -20,6 +20,16 @@ export class PrismaService
   private slowQueryCount = 0;
 
   constructor() {
+    // ⚠️ Validate DATABASE_URL exists before initializing
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error(
+        '❌ DATABASE_URL environment variable is not defined. ' +
+        'Please ensure it is set in your Railway environment variables. ' +
+        'Expected format: postgresql://user:password@host:port/database?sslmode=require'
+      );
+    }
+
     super({
       log: [
         // ⚡ Performance: Log slow queries in development
@@ -28,12 +38,8 @@ export class PrismaService
         { emit: 'stdout', level: 'warn' },
       ],
       // ⚡ Performance: Connection pooling configuration
-      // Additional parameters should be in DATABASE_URL
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      },
+      // Prisma automatically uses DATABASE_URL from environment
+      // No need to specify datasources explicitly
     });
 
     // ⚡ Query performance monitoring
