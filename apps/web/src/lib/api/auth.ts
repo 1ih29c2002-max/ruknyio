@@ -12,7 +12,7 @@
  */
 
 import { z } from 'zod';
-import api, { setCsrfToken, clearCsrfToken } from './client';
+import api, { setCsrfToken, clearCsrfToken, setAccessToken, clearAccessToken } from './client';
 
 // ============ Schemas ============
 
